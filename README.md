@@ -42,7 +42,9 @@ git submodule update --remote
   
 ## Configuration
   Le Drawer doit connaître le nombre de clés disponibles dans le réseau Chord
-  Il est configuré pour d'executer sur un port donné
+  
+  Il est configuré pour s'executer sur un port donné
+  
   Pour un Drawer présent sur une autre machine, il est necessaire de configurer aussi son ip
   
 ## Fonctionnement
