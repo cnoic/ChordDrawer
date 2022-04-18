@@ -9,6 +9,7 @@
 
 ```bash
 git submodule add git@github.com:FoxtrotNSF/ChordDrawer.git
+git submodule update --init --recursive
 ```
 
 ### Pour le mettre a jour:
