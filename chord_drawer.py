@@ -53,6 +53,11 @@ def angle_from_coords(coords): #retourne l'angle en degrés d'un point
         return (math.degrees(math.atan(coords[1]/coords[0]))+180)%360
     if(coords[1] < 0):
         return (math.degrees(math.atan(coords[1]/coords[0]))+360)%360
+    if(coords[0] == 0):
+        if(coords[1] > 0):
+            return 90
+        else:
+            return 270
     return math.degrees(math.atan(coords[1]/coords[0]))
 
 
@@ -173,7 +178,13 @@ class GraphicNode(object):
     def in_network(self):
         return self.innetwork
     def join_network(self):
-        self.associated_key = int(self.key)
+        if(self.key == None):
+            print("Un noeud doit rejoindre le réseau mais sa clé n'a pas pu être déterminée")
+            print("C'est probablement du à un problème à l'initialisation du notifieur")
+            print("Ca arrive aussi si plusieurs noeuds se lancent en même temps")
+            self.associated_key = 0
+        else:
+            self.associated_key = int(self.key)
         self.innetwork = True
         self.setpos()
     def get_pos(self):
@@ -189,6 +200,9 @@ class GraphicNode(object):
         return self.associated_key
     def set_key(self, key):
         self.key = int(key)
+        if self.innetwork:
+            self.associated_key = int(key)
+            self.setpos()
     def addr_matches(self, addr):
         my_ips = ['','0.0.0.0','127.0.0.1',"localhost"]
         if addr[0] != self.ip:
@@ -266,11 +280,10 @@ class Drawer(object):
         if(json_data[0] in self.colors.keys()):
             sender.draw_to_node(receiver, self.colors[json_data[0]], json_data[0])
         if(json_data[0] == "ok"):
-            if(sender.is_asking()):
-                receiver.join_network()
-            else:
-                print("Un noeud doit rejoindre le réseau mais sa clé n'a pas pu être déterminée")
-                print("C'est probablement du à un problème d'initialisation du notifieur")
+            receiver.join_network()
+        if(json_data[0] == "holder_res"):
+            sender.set_key(json_data[2])
+                
 
 
 
