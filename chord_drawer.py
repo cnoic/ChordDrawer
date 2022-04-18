@@ -3,6 +3,9 @@
 NCLE = 256
 PORT_DRAWER = 9000
 IP_DRAWER = 'localhost'
+MSGS_TO_TRACK = ["join", "get", "res", "update", "ok", "new", "holder_req", "holder_res", "updateAck", "quit", "nok"]
+#["join", "get", "res", "update", "ok", "new", "holder_req", "holder_res", "updateAck", "quit", "nok"]
+
 #IP_DRAWER est valable pour le notifieur uniquement, le drawer est toujours en localhost evidemment
 #
 #Dans votre noeud chord vous devez ajouter :
@@ -49,15 +52,15 @@ def draw_arrow(tt,taille): #affiche le bout de la fleche
     tt.penup()
 
 def angle_from_coords(coords): #retourne l'angle en degrés d'un point
-    if(coords[0] < 0):
-        return (math.degrees(math.atan(coords[1]/coords[0]))+180)%360
-    if(coords[1] < 0):
-        return (math.degrees(math.atan(coords[1]/coords[0]))+360)%360
     if(coords[0] == 0):
         if(coords[1] > 0):
             return 90
         else:
             return 270
+    if(coords[0] < 0):
+        return (math.degrees(math.atan(coords[1]/coords[0]))+180)%360
+    if(coords[1] < 0):
+        return (math.degrees(math.atan(coords[1]/coords[0]))+360)%360
     return math.degrees(math.atan(coords[1]/coords[0]))
 
 
@@ -124,10 +127,9 @@ class NotifierClass(object):
     def __init__(self):
         self.drawer_ip = None
         self.drawer_port = None
-        self.ip = None
-        self.port = None
         self.active = False
         self.configured = False
+        self.adrs = {}
     def is_active(self):
         return self.active and self.configured
     def disable(self):
@@ -141,8 +143,7 @@ class NotifierClass(object):
             print("notifier incatif")
             print("configurez l'adresse du drawer : notifier.init([ip],[port])")
             return
-        self.ip = ip
-        self.port = port
+        self.adrs = {'draw_ips' : ip, 'draw_ports':port}
         self.configured = True
     def bind(self,serversocket, adrs):
         self.configure_node(adrs[0],adrs[1])
@@ -151,13 +152,21 @@ class NotifierClass(object):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self.drawer_ip, self.drawer_port))
-                s.send(json.dumps([ip,port,self.ip,self.port]+data).encode())
+                recp = {'draw_ipr' : ip, 'draw_portr' : port}
+                dts = {'type' : data['type']}
+                if 'id' in data:
+                    dts['id'] = data['id']
+                if 'ip' in data:
+                    dts['ip'] = data['ip']
+                if 'port' in data:
+                    dts['port'] = data['port']
+                s.send(json.dumps({**self.adrs, **recp, **dts}).encode())
         except:
             print("Error while sending data to the drawer ")
-            self.disable()
+            #self.disable()
     def notify_first_node(self,ip,port,key):
         if(self.is_active()):
-            self.send(ip,port,["init",key])
+            self.send(ip,port,{'type' : "init", 'id' : key})
         else:
             print("no drawer defined")
 
@@ -263,26 +272,30 @@ class Drawer(object):
                 return node
         return None
 
-    def execute(self, json_data, ipr, portr, ip_src, port_src):
-        if(json_data[0] == "init"):
-            self.nodes.append(GraphicNode(self.size, ip_src, port_src, int(json_data[1]), int(json_data[1]), True))
+    def execute(self, json_data):
+        ipr = json_data['draw_ipr']
+        portr = json_data['draw_portr']
+        ip_src = json_data['draw_ips']
+        port_src = json_data['draw_ports']
+        if(json_data['type'] == "init"):
+            self.nodes.append(GraphicNode(self.size, ip_src, port_src, int(json_data['id']), int(json_data['id']), True))
             return
         sender, receiver = self.find_two_nodes((ip_src, port_src), (ipr, portr))
-        if(json_data[0] == "join"):
+        if(json_data['type'] == "join"):
             print("Finding node joining")
-            node = self.find_node((json_data[2], int(json_data[3])))
+            node = self.find_node((json_data['ip'], int(json_data['port'])))
             print("node found : " + str(node))
             if(node == None):
                 print("node not found")
-                node = GraphicNode(self.size, json_data[2], int(json_data[3]), receiver.get_key())
+                node = GraphicNode(self.size, json_data['ip'], int(json_data['port']), receiver.get_key())
                 self.nodes.append(node)
-            node.set_key(json_data[1])
-        if(json_data[0] in self.colors.keys()):
-            sender.draw_to_node(receiver, self.colors[json_data[0]], json_data[0])
-        if(json_data[0] == "ok"):
+            node.set_key(json_data['id'])
+        if(json_data['type'] in self.colors.keys() and json_data['type'] in MSGS_TO_TRACK):
+            sender.draw_to_node(receiver, self.colors[json_data['type']], json_data['type'])
+        if(json_data['type'] == "ok"):
             receiver.join_network()
-        if(json_data[0] == "holder_res"):
-            sender.set_key(json_data[2])
+        if(json_data['type'] == "holder_res"):
+            sender.set_key(json_data['id'])
                 
 
 
@@ -315,7 +328,7 @@ def sockets_client(d,stop_fun):
                             data += tmp
                         if data:
                             json_data = json.loads(data)
-                            d.execute(json_data[4:], json_data[0], int(json_data[1]),json_data[2],int(json_data[3]))
+                            d.execute(json_data)
                         else:
                             inputs.remove(s)
                             s.close()
