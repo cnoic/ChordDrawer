@@ -17,7 +17,13 @@ git submodule add git@github.com:FoxtrotNSF/ChordDrawer.git
 git submodule update --remote
 ```
 
-## Utilisation / Prérequis
+## Utilisation
+  - Au début du fichier vous pouvez choisir quels messages vous voulez visualiser
+  - Configurez le nombre de clés que contient votre réseau chord
+  - Lancez le drawer `python ./chord_drawer.py`
+  - Puis lancez vos noeuds chord
+
+## Prérequis
 ### Dans le fichier `chord_tools.py`:
   - Importer le module: (Par exemple si le module est dans le dossier ChordDrawer)
   ```python
@@ -32,11 +38,11 @@ git submodule update --remote
 ### Dans votre noeud chord (a l'initialisation du noeud, avant la boucle de reception)
   - Configurer le notifieur associé au noeud
   ```python
-  notifier.configure_node([votre_ip],[port_du_noeud])
+  notifier.configure_node(IP_NOEUD,PORT_NOEUD)
   ```
   - Pour enregistrer le premier Noeud a rejoindre le réseau (seulement le premier Noeud)
   ```python
-  notifier.notify_first_node([votre_ip],[port_du_noeud],[cle_du_noeud])
+  notifier.notify_first_node(IP_NOEUD,PORT_NOEUD,CLE_NOEUD)
   ```
   
 ## Configuration
