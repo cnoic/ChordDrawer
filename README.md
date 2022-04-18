@@ -37,7 +37,12 @@ git submodule update --remote
   notifier.notify_first_node([votre_ip],[port_du_noeud],[cle_du_noeud])
   ```
   
-# Fonctionnement
+## Configuration
+  Le Drawer doit connaître le nombre de clés disponibles dans le réseau Chord
+  Il est configuré pour d'executer sur un port donné
+  Pour un Drawer présent sur une autre machine, il est necessaire de configurer aussi son ip
+  
+## Fonctionnement
 Chaque Noeud est associé à un notifieur, qui intercepte les signaux émis et en envoie une copie avec des informations supplémentaires au Drawer
 Le Drawer est un noeud modifié qui interprète les signaux et les affiche
 
