@@ -154,7 +154,7 @@ class NotifierClass(object):
                 s.send(json.dumps([ip,port,self.ip,self.port]+data).encode())
         except:
             print("Error while sending data to the drawer ")
-            #self.disable()
+            self.disable()
     def notify_first_node(self,ip,port,key):
         if(self.is_active()):
             self.send(ip,port,["init",key])

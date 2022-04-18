@@ -1,6 +1,9 @@
 # ChordDrawer
 Afficheur de l'activité sur un réseau Chord (TP SD)
 
+![](ressources/commands.gif)
+![](ressources/graphe.gif)
+
 ## Utilisation comme submodule
 
 ### Pour l'ajouter a votre repo:
