@@ -1,8 +1,8 @@
 # ChordDrawer
 Afficheur de l'activité sur un réseau Chord (TP SD)
 
-![](ressources/commands.gif)
-![](ressources/graphe.gif)
+![](gallery/commands.gif)
+![](gallery/graphe.gif)
 
 ## Utilisation comme submodule
 
@@ -51,7 +51,7 @@ git submodule update --remote
 Chaque Noeud est associé à un notifieur, qui intercepte les signaux émis et en envoie une copie avec des informations supplémentaires au Drawer
 Le Drawer est un noeud modifié qui interprète les signaux et les affiche
 
-![](ressources/lediagramme.png)
+![](gallery/lediagramme.png)
 
 L'étape de configuration permet au notifieur de connaître l'adresse de son noeud afin de l'inclure quand il notifie le Drawer
 Le premier noeud a besoin d'être enregistré manuellement car il n'emet pas de "join" donc le drawer ne peut pas l'inclure au réseau automatiquement.
