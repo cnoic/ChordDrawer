@@ -1,10 +1,23 @@
 #! /usr/bin/python3
+import threading
+from turtle import *
+import json
+import socket, select
+import sys
+import math
+if __name__ == "__main__":
+    from ezpylog.Logger import Logger, LogLevel
+else:
+    from .ezpylog.Logger import Logger, LogLevel
+
+
 
 NCLE = 256
 PORT_DRAWER = 9000
 IP_DRAWER = 'localhost'
 MSGS_TO_TRACK = ["join", "get", "res", "update", "ok", "new", "holder_req", "holder_res", "updateAck", "quit", "nok"]
 #["join", "get", "res", "update", "ok", "new", "holder_req", "holder_res", "updateAck", "quit", "nok"]
+LOGLVL = LogLevel.WARNING
 
 #IP_DRAWER est valable pour le notifieur uniquement, le drawer est toujours en localhost evidemment
 #
@@ -24,18 +37,11 @@ MSGS_TO_TRACK = ["join", "get", "res", "update", "ok", "new", "holder_req", "hol
 #               def json_send(ip, port, data):
 #                   ...
 
-import threading
-from turtle import *
-import json
-import socket, select
-import sys
-import math
-
 
 def draw_activity(func):
     global notifier
     def wrapper(ip,port,data):
-        if(notifier.is_active()):
+        if(notifier.is_active() and data["type"] in MSGS_TO_TRACK):
             notifier.send(ip,port,data)
         return func(ip,port,data)
     return wrapper
@@ -129,6 +135,7 @@ class NotifierClass(object):
         self.drawer_port = None
         self.active = False
         self.configured = False
+        self.logger = Logger(LOGLVL,"Notifier")
         self.adrs = {}
     def is_active(self):
         return self.active and self.configured
@@ -138,16 +145,15 @@ class NotifierClass(object):
         self.drawer_ip = ip
         self.drawer_port = port
         self.active = True
+        self.logger.log("Notifier initialisé", LogLevel.DEBUG)
     def configure_node(self,ip,port):
         if not self.active:
-            print("notifier incatif")
-            print("configurez l'adresse du drawer : notifier.init([ip],[port])")
-            return
+            self.logger.log("Notifier incatif", LogLevel.CRITICAL)
+            self.logger.log("Configurez l'adresse du drawer : notifier.init(IP_DRAWER,PORT_DRAWER)", LogLevel.CRITICAL)
+            exit(1)
         self.adrs = {'draw_ips' : ip, 'draw_ports':port}
         self.configured = True
-    def bind(self,serversocket, adrs):
-        self.configure_node(adrs[0],adrs[1])
-        return serversocket.bind(adrs)
+        self.logger.log("Notifier configuré ("+str(ip)+":"+str(port)+")", LogLevel.DEBUG)
     def send(self,ip,port,data):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -162,19 +168,22 @@ class NotifierClass(object):
                     dts['port'] = data['port']
                 s.send(json.dumps({**self.adrs, **recp, **dts}).encode())
         except:
-            print("Error while sending data to the drawer ")
+            self.logger.log("Echec de l'envoi d'un message au Drawer", LogLevel.WARNING)
             #self.disable()
     def notify_first_node(self,ip,port,key):
         if(self.is_active()):
             self.send(ip,port,{'type' : "init", 'id' : key})
         else:
-            print("no drawer defined")
+            self.logger.log("Le notifier n'est pas configuré ", LogLevel.CRITICAL)
+            self.logger.log("Vous devez d'abord notifier.configure_node(IP,PORT)", LogLevel.CRITICAL)
+            exit(1)
 
 
 class GraphicNode(object):
     def __init__(self, size, ip, port, associated_key, key=None, in_network=False):
         global NCLE
         self.nbcles = NCLE
+        self.logger = Logger(LOGLVL,"GraphicNode")
         self.size = size
         self.ip = ip
         self.port = port
@@ -188,12 +197,13 @@ class GraphicNode(object):
         return self.innetwork
     def join_network(self):
         if(self.key == None):
-            print("Un noeud doit rejoindre le réseau mais sa clé n'a pas pu être déterminée")
-            print("C'est probablement du à un problème à l'initialisation du notifieur")
-            print("Ca arrive aussi si plusieurs noeuds se lancent en même temps")
+            self.logger.log("Un noeud doit rejoindre le réseau mais sa clé n'a pas pu être déterminée", LogLevel.WARNING)
+            self.logger.log("C'est probablement du à un problème à l'initialisation du notifieur", LogLevel.WARNING)
+            self.logger.log("Ca arrive aussi si plusieurs noeuds se lancent en même temps", LogLevel.WARNING)
             self.associated_key = 0
         else:
             self.associated_key = int(self.key)
+            self.logger.log("Le noeud "+str(self.ip )+":"+str(self.port)+" ("+str(self.associated_key)+") a été ajouté au réseau", LogLevel.INFO)
         self.innetwork = True
         self.setpos()
     def get_pos(self):
@@ -207,6 +217,8 @@ class GraphicNode(object):
         return self.key is not None
     def get_key(self):
         return self.associated_key
+    def has_key_set(self):
+        return self.key is not None
     def set_key(self, key):
         self.key = int(key)
         if self.innetwork:
@@ -240,6 +252,7 @@ class GraphicNode(object):
 class Drawer(object):
     def __init__(self):
         global NCLE
+        self.logger = Logger(LOGLVL)
         self.nbcles = NCLE
         self.size = 150
         self.init_t = create_trle()
@@ -252,16 +265,18 @@ class Drawer(object):
         self.nodes = []
         self.colors = {"join": "green", "get": "red", "res": "blue", "update": "orange", "ok": "orange", "new": "black", "holder_req": "purple", "holder_res": "green", "updateAck": "brown", "quit": "brown", "nok": "grey"}
 
-
     def find_two_nodes(self, addr1, addr2):
         node1 = self.find_node(addr1)
         node2 = self.find_node(addr2)
         if(node1 is None):
-            assert (node2 is not None), "communication entre deux noeuds inconnus"
+            if (node2 is None):
+                return None, None
             node1 = GraphicNode(self.size, addr1[0], int(addr1[1]), node2.get_key())
             self.nodes.append(node1)
+            self.logger.log("Nouveau client "+str(addr1[0])+":"+str(addr1[1])+" communiquant avec le noeud ("+str(node2.get_key())+")", LogLevel.INFO)
         if(node2 is None):
             node2 = GraphicNode(self.size, addr2[0], int(addr2[1]), node1.get_key())
+            self.logger.log("Nouveau client "+str(addr2[0])+":"+str(addr2[1])+" communiquant avec le noeud ("+str(node1.get_key())+")", LogLevel.INFO)
             self.nodes.append(node2)
         return node1, node2
     
@@ -281,21 +296,29 @@ class Drawer(object):
             self.nodes.append(GraphicNode(self.size, ip_src, port_src, int(json_data['id']), int(json_data['id']), True))
             return
         sender, receiver = self.find_two_nodes((ip_src, port_src), (ipr, portr))
+        if sender is None and receiver is None:
+            self.logger.log("Communication entre deux noeuds inconnus", LogLevel.ERROR)
+            return
         if(json_data['type'] == "join"):
-            print("Finding node joining")
+            self.logger.log("Un noeud demande a joindre le réseau", LogLevel.DEBUG)
             node = self.find_node((json_data['ip'], int(json_data['port'])))
-            print("node found : " + str(node))
             if(node == None):
-                print("node not found")
-                node = GraphicNode(self.size, json_data['ip'], int(json_data['port']), receiver.get_key())
+                self.logger.log("Le noeud demandant a rejoindre le réseau est inconnu", LogLevel.WARNING)
+                self.logger.log("Le message initial de join n'a pas été intercepté", LogLevel.WARNING)
+                node = GraphicNode(self.size, json_data['ip'], int(json_data['port']), int(json_data['id']))
                 self.nodes.append(node)
-            node.set_key(json_data['id'])
+            else:
+                node.set_key(json_data['id'])
         if(json_data['type'] in self.colors.keys() and json_data['type'] in MSGS_TO_TRACK):
             sender.draw_to_node(receiver, self.colors[json_data['type']], json_data['type'])
+        else:
+            self.logger.log("Message non pris en compte : "+json_data['type'], LogLevel.INFO)
         if(json_data['type'] == "ok"):
             receiver.join_network()
         if(json_data['type'] == "holder_res"):
-            sender.set_key(json_data['id'])
+            if not sender.has_key_set():
+                sender.set_key(json_data['id'])
+                self.logger.log("La clé du noeud a pu être déterminée", LogLevel.INFO)
                 
 
 
@@ -305,40 +328,22 @@ def sockets_client(d,stop_fun):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as serversocket:
         serversocket.bind(('', port_listener))
         serversocket.listen(5)
-        serversocket.setblocking(False)
-        inputs = [serversocket]
-        while inputs:
+        serversocket.settimeout(0.2)
+        while not stop_fun():
             try:
-                readable, writable, exceptional = select.select(inputs, [], inputs)
-            except select.error:
+                conn, addr = serversocket.accept()
+                with conn:
+                    while True:
+                        data = conn.recv(1024)
+                        if not data:
+                            break
+                        d.execute(json.loads(data))
+            except socket.timeout:
+                pass
+            except Exception as e:
+                print(e)
                 break
-            for s in readable:
-                if s is serversocket:
-                    connection, client_address = s.accept()
-                    connection.setblocking(False)
-                    inputs.append(connection)
-                else:
-                    try:
-                        data = b''
-                        somedata = True
-                        while somedata:
-                            tmp = s.recv(1024)
-                            if tmp == b'':
-                                somedata = False
-                            data += tmp
-                        if data:
-                            json_data = json.loads(data)
-                            d.execute(json_data)
-                        else:
-                            inputs.remove(s)
-                            s.close()
-                    except socket.error:
-                        inputs.remove(s)
-                        s.close()
-            if stop_fun():
-                inputs.remove(serversocket)
-                serversocket.close()
-                print("Fin du programme")
+
 
 
 def main():
@@ -346,9 +351,15 @@ def main():
     stop_threads = False
     drawer_thread = threading.Thread(target=sockets_client, args=(d,lambda : stop_threads))
     drawer_thread.start()
-    mainloop()
+    try:
+        mainloop()
+    except Exception as e:
+        print(e)
+        stop_threads = True
+        drawer_thread.join()
+        sys.exit(1)
     stop_threads = True
-    exit(1)
+    exit(0)
 
 if __name__ == "__main__":
     main()

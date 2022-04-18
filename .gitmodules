@@ -1,0 +1,3 @@
+[submodule "ezpylog"]
+	path = ezpylog
+	url = git@github.com:JRodez/ezpylog.git
