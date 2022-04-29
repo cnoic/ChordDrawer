@@ -12,12 +12,14 @@ else:
 
 
 
-NCLE = 256
+NCLE = 64
 PORT_DRAWER = 9000
-IP_DRAWER = 'localhost'
-MSGS_TO_TRACK = ["join", "get", "res", "update", "ok", "new", "holder_req", "holder_res", "updateAck", "quit", "nok"]
+IP_DRAWER = '192.168.1.35' #mettre 'localhost' sur un système en local'
+MSGS_TO_TRACK = ["join", "get", "res", "update", "ok", "updateAck", "quit", "nok"]
+MSGS = ["join", "get", "res", "update", "ok", "new", "holder_req", "holder_res", "updateAck", "quit", "nok"]
+compt = dict.fromkeys(MSGS,0)
 #["join", "get", "res", "update", "ok", "new", "holder_req", "holder_res", "updateAck", "quit", "nok"]
-LOGLVL = LogLevel.WARNING
+LOGLVL = LogLevel.INFO
 
 #IP_DRAWER est valable pour le notifieur uniquement, le drawer est toujours en localhost evidemment
 #
@@ -225,7 +227,7 @@ class GraphicNode(object):
             self.associated_key = int(key)
             self.setpos()
     def addr_matches(self, addr):
-        my_ips = ['','0.0.0.0','127.0.0.1',"localhost"]
+        my_ips = ['','0.0.0.0','127.0.0.1',"localhost",'192.168.1.35']
         if addr[0] != self.ip:
             return (addr[1] == self.port) and (addr[0] in my_ips) and (self.ip in my_ips)
         return (addr[1] == self.port)
@@ -292,6 +294,8 @@ class Drawer(object):
         portr = json_data['draw_portr']
         ip_src = json_data['draw_ips']
         port_src = json_data['draw_ports']
+        if json_data['type'] in MSGS:
+            compt[json_data['type']] += 1
         if(json_data['type'] == "init"):
             self.nodes.append(GraphicNode(self.size, ip_src, port_src, int(json_data['id']), int(json_data['id']), True))
             return
@@ -359,6 +363,7 @@ def main():
         drawer_thread.join()
         sys.exit(1)
     stop_threads = True
+    print(compt)
     exit(0)
 
 if __name__ == "__main__":
