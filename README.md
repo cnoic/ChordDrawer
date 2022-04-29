@@ -15,7 +15,7 @@ git submodule update --init --recursive
 ### Pour le mettre a jour:
 
 ```bash
-git submodule update --remote
+git submodule update --remote --recursive
 ```
 
 ## Utilisation
